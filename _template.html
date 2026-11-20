@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root{
+  --bg:#f6f7f9; --surface:#ffffff; --text:#1c2230; --muted:#5f6b7d; --line:#e3e7ee;
+  --accent:#2c5fd6; --accent-soft:#e8eefc; --hover:#f1f4f9;
+  --pdf:#c9372c; --doc:#2b5cb8; --xls:#1f7a45; --ppt:#c4561d; --other:#6b7280;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#11141a; --surface:#191d25; --text:#e6e9ef; --muted:#9aa4b5; --line:#2a303c;
+    --accent:#7aa2ff; --accent-soft:#1f2a44; --hover:#212734;
+    --pdf:#f0776c; --doc:#79a3f2; --xls:#5cc48a; --ppt:#f19a63; --other:#a1a8b5;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:inherit}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+header{background:var(--surface);border-bottom:1px solid var(--line)}
+header .wrap{padding-top:28px;padding-bottom:22px}
+h1{margin:0;font-size:1.6rem;letter-spacing:-.01em}
+.sub{color:var(--muted);margin-top:4px}
+.toolbar{display:flex;gap:12px;align-items:center;margin-top:18px;flex-wrap:wrap}
+.search{flex:1;min-width:220px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg);color:var(--text);font:inherit}
+.search:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.stat{color:var(--muted);font-size:.9rem;white-space:nowrap}
+main{padding:24px 0 48px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;
+  text-decoration:none;display:flex;flex-direction:column;gap:6px;cursor:pointer;transition:border-color .15s,transform .15s}
+.card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.code{font:600 .78rem/1 ui-monospace,Consolas,monospace;color:var(--accent);background:var(--accent-soft);
+  padding:4px 8px;border-radius:6px;align-self:flex-start}
+.card h2{margin:4px 0 0;font-size:1.08rem}
+.card .meta{color:var(--muted);font-size:.86rem;margin-top:auto;padding-top:8px}
+.crumb{display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.back{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:8px;
+  padding:7px 12px;font:inherit;cursor:pointer}
+.back:hover{border-color:var(--accent)}
+.course-head h2{margin:6px 0 4px;font-size:1.4rem}
+.group{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-top:16px;overflow:hidden}
+.group h3{margin:0;padding:12px 16px;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--muted);border-bottom:1px solid var(--line);background:var(--bg)}
+.file{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--line);text-decoration:none}
+.file:first-of-type{border-top:0}
+.file:hover{background:var(--hover)}
+.badge{flex:none;width:44px;text-align:center;font:700 .7rem/1 ui-monospace,Consolas,monospace;
+  padding:6px 0;border-radius:6px;color:#fff;text-transform:uppercase;background:var(--other)}
+.b-pdf{background:var(--pdf)} .b-doc,.b-docx{background:var(--doc)} .b-xls,.b-xlsx,.b-csv{background:var(--xls)}
+.b-ppt,.b-pptx{background:var(--ppt)}
+@media (prefers-color-scheme: dark){.badge{color:#11141a}}
+.fname{flex:1;min-width:0;overflow-wrap:anywhere}
+.fname small{display:block;color:var(--muted);font-size:.78rem}
+.size{color:var(--muted);font-size:.82rem;white-space:nowrap}
+.empty{color:var(--muted);padding:40px 0;text-align:center}
+footer{color:var(--muted);font-size:.82rem;text-align:center;padding:0 16px 32px}
+mark{background:#ffe58a;color:#1c2230;border-radius:2px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1 id="title"></h1>
+    <div class="sub" id="subtitle"></div>
+    <div class="toolbar">
+      <input class="search" id="q" type="search" placeholder="Search all files (e.g. lesson plan, answer key, syllabus)…" autocomplete="off">
+      <span class="stat" id="stat"></span>
+    </div>
+  </div>
+</header>
+<main class="wrap" id="app"></main>
+<footer id="foot"></footer>
+
+<script>
+const DATA = /*__DATA__*/null;
+
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const urlFor = p => p.split('/').map(encodeURIComponent).join('/');
+const fmtSize = b => b > 1048576 ? (b/1048576).toFixed(1)+' MB' : Math.max(1, Math.round(b/1024))+' KB';
+const OFFICE = new Set(['doc','docx','xls','xlsx','ppt','pptx']);
+const isLocal = !/^https?:$/.test(location.protocol) || /^(localhost|127\.|\[::1\])/.test(location.hostname);
+
+// PDFs/images open in the browser; Office files open in Microsoft's online viewer once hosted on GitHub Pages.
+function hrefFor(f){
+  const rel = urlFor(f.path);
+  if (OFFICE.has(f.ext) && !isLocal){
+    const abs = new URL(rel, location.href).href;
+    return 'https://view.officeapps.live.com/op/view.aspx?src=' + encodeURIComponent(abs);
+  }
+  return rel;
+}
+
+function highlight(text, q){
+  if (!q) return esc(text);
+  const i = text.toLowerCase().indexOf(q);
+  if (i < 0) return esc(text);
+  return esc(text.slice(0,i)) + '<mark>' + esc(text.slice(i,i+q.length)) + '</mark>' + esc(text.slice(i+q.length));
+}
+
+function fileRow(f, q, showCourse){
+  const sub = showCourse ? `${f._course}${f.folder ? ' › '+f.folder : ''}` : '';
+  return `<a class="file" href="${hrefFor(f)}" target="_blank" rel="noopener">
+    <span class="badge b-${esc(f.ext)}">${esc(f.ext || 'file')}</span>
+    <span class="fname">${highlight(f.name, q)}${sub ? `<small>${esc(sub)}</small>` : ''}</span>
+    <span class="size">${fmtSize(f.size)}</span>
+  </a>`;
+}
+
+function renderHome(){
+  const total = DATA.courses.reduce((n,c) => n + c.files.length, 0);
+  $('#stat').textContent = `${DATA.courses.length} courses · ${total} files`;
+  $('#app').innerHTML = `<div class="grid">${DATA.courses.map((c,i) => `
+    <a class="card" href="#course/${i}">
+      ${c.code ? `<span class="code">${esc(c.code)}</span>` : ''}
+      <h2>${esc(c.title)}</h2>
+      <span class="meta">${c.files.length} files</span>
+    </a>`).join('')}</div>`;
+}
+
+function renderCourse(i){
+  const c = DATA.courses[i];
+  if (!c) return renderHome();
+  $('#stat').textContent = `${c.files.length} files`;
+  const groups = {};
+  c.files.forEach(f => (groups[f.folder] ||= []).push(f));
+  const html = Object.entries(groups).map(([folder, files]) => `
+    <section class="group">
+      <h3>${esc(folder ? folder.replace(/\//g,' › ') : 'Main files')}</h3>
+      ${files.map(f => fileRow(f, '', false)).join('')}
+    </section>`).join('');
+  $('#app').innerHTML = `
+    <div class="crumb"><button class="back" onclick="location.hash=''">← All courses</button></div>
+    <div class="course-head">${c.code ? `<span class="code">${esc(c.code)}</span>` : ''}<h2>${esc(c.title)}</h2></div>
+    ${html || '<p class="empty">No files in this course yet.</p>'}`;
+  window.scrollTo(0,0);
+}
+
+function renderSearch(q){
+  const hits = [];
+  DATA.courses.forEach(c => c.files.forEach(f => {
+    const hay = (f.name + ' ' + f.folder + ' ' + c.title + ' ' + c.code).toLowerCase();
+    if (q.split(/\s+/).every(t => hay.includes(t))) hits.push({...f, _course: c.title});
+  }));
+  $('#stat').textContent = `${hits.length} match${hits.length === 1 ? '' : 'es'}`;
+  $('#app').innerHTML = hits.length
+    ? `<section class="group">${hits.slice(0,300).map(f => fileRow(f, q, true)).join('')}</section>`
+    : `<p class="empty">No files match “${esc(q)}”.</p>`;
+}
+
+function route(){
+  const q = $('#q').value.trim().toLowerCase();
+  if (q) return renderSearch(q);
+  const m = location.hash.match(/^#course\/(\d+)/);
+  m ? renderCourse(+m[1]) : renderHome();
+}
+
+$('#title').textContent = DATA.title;
+$('#subtitle').textContent = DATA.subtitle;
+$('#foot').textContent = `Last updated ${DATA.updated}` + (isLocal ? ' · Word/Excel/PowerPoint files download when viewed locally; they open in the browser once published.' : '');
+$('#q').addEventListener('input', route);
+window.addEventListener('hashchange', () => { $('#q').value = ''; route(); });
+route();
+</script>
+</body>
+</html>
